@@ -6,12 +6,10 @@ import DetailsBrand from "./data/detailsBrand";
 import brand from "./data/brand";
 import Home from "./data/home";
 
+
 class App extends Component {
     constructor(props) {
         super(props);
-        this.state = {
-            purchase: []
-        }
     }
 
     componentDidMount() {
@@ -35,16 +33,11 @@ class App extends Component {
                 <Switch>
                     <Route exact path='/' component={Home} />
                     <Route exact path='/brand' component={brand} />
-                    <Route path="/brand/:id" render={({match}) => (
-                        <DetailsBrand
-                            id={match.params.id}
-                        />
-                    )}/>
+                    <Route path="/brand/:id" component={DetailsBrand}/>
                 </Switch>
             </Router>
         );
     }
-
 
 }
 

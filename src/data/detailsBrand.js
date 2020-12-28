@@ -1,5 +1,5 @@
-import fire from "../firebase";
 import firebase from "firebase";
+import fire from "../firebase";
 import {React, Component} from "react";
 import {
     BrowserRouter as Router,
@@ -13,51 +13,55 @@ import ReactTable from 'react-table'
 import {count, unique} from "react-table/src/aggregations";
 import Moment from 'moment';
 import {Line} from 'react-chartjs-2';
+import {forEach} from "react-bootstrap/ElementChildren";
 
 class DetailsBrand extends Component {
 
     id = this.props.match.params.id;
 
-    state = {
-        brand: {},
-        brandDetails: [],
-        data: [],
-        influencers: []
-    };
-
-
-    componentDidMount() {
-        this.getdata(this.id)
+    constructor(props) {
+        super(props);
+        this.state = {
+            brand: {},
+            brandDetails: [],
+            data: [],
+            salesnumber: 0,
+            amountnumber: 0,
+            loading: true,
+        }
+        this.getData()
     }
 
 
-    getdata(id) {
 
-        let salesnumber = 0;
-        let amountnumber = 0;
-        let data = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-        let brand;
-        let influencers = [];
-        let dataTable = [];
+    getData() {
         let purchases = [];
-
         fire.database().ref("brands").orderByChild("offerId")
-            .equalTo(parseInt(id))
+            .equalTo(parseInt(this.id))
             .on("value", snapshot => {
-                brand = {};
                 snapshot.forEach(snap_3 => {
-                    brand = snap_3.val();
+                    this.setState(prevState => ({
+                            ...prevState,
+                            brand: snap_3.val()
+                        })
+                    )
                 })
-                this.setState({
-                    brand: brand
+            });
+
+        let infs = [];
+        fire.database().ref("Influencers")
+            .on("value", snapshot => {
+                snapshot.forEach(snap => {
+                    let inf = snap.val()['Profil']
+                    inf['key'] = snap.key;
+                    infs.push(inf);
                 })
             });
 
         fire.database().ref("conversions/purchase")
             .orderByChild("offerId")
-            .equalTo(parseInt(id))
+            .equalTo(parseInt(this.id))
             .on("value", snapshot => {
-
                 snapshot.forEach(snap => {
                     let pur = snap.val();
                     fire.database().ref("Influencers/" + snap.val()["influencer"])
@@ -66,65 +70,68 @@ class DetailsBrand extends Component {
                             snapshot_1.forEach(snap_2 => {
                                 pur['inf'] = snap_2.val();
                             });
-                            purchases.push(pur);
                         });
-
-
+                    purchases.push(pur);
                 });
-
-                purchases.forEach(element => {
-                    salesnumber += parseFloat(element['goal']);
-                    amountnumber += parseFloat(element['amount']);
-                    influencers.push(element.inf);
-                    data.map(function (value, index) {
-                        if (parseInt(Moment(element['createdAt'] * 1000).format('MM')) === index) {
-                            data[index] += element['amount'];
-                        }
-                        return data;
-                    })
-
-                });
-                this.setState(
-                    {
-                        data: data
-                    }
-                );
-                console.log(purchases)
-
-                if (influencers.length > 0 && influencers[0] !== undefined) {
-                    console.log(influencers)
-                    influencers = [...new Map(influencers.map(item =>
-                        [item['name'], item])).values()];
-
-                    influencers.forEach(element => {
-
-                        dataTable.push({
-                            influencer: element, goal: purchases.reduce(function (sum, obj) {
-                                if (element.name === obj.inf['name']) {
-                                    return parseFloat(sum) + parseFloat(obj.goal);
-                                }
-                                return parseFloat(sum);
-                            }, 0), com: purchases.reduce(function (sum, obj) {
-                                if (element.name === obj.inf['name']) {
-                                    return parseFloat(sum) + parseFloat(obj.commission);
-                                }
-                                return parseFloat(sum);
-                            }, 0)
-                        });
-                    });
-
-
-                    this.setState(
-                        {
-                            brandDetails: dataTable,
-                            influencers: influencers
-                        }
-                    );
-
-                }
+                this.retrivtData(purchases, infs)
             });
+    }
 
-        console.log(this.state)
+    retrivtData(purchases, infs) {
+        let salesnumber = 0;
+        let amountnumber = 0;
+        let dataTable = [];
+        let data = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        let influencers = []
+
+
+        purchases.forEach(element => {
+
+
+            infs.forEach(inf => {
+                if (inf.key === element.influencer) {
+                    influencers.push(inf)
+                }
+            })
+
+            salesnumber += parseFloat(element['goal']);
+            amountnumber += parseFloat(element['amount']);
+            data.map(function (value, index) {
+                if (parseInt(Moment(element['createdAt'] * 1000).format('MM')) === index) {
+                    data[index] += element['amount'];
+                }
+                return data;
+            });
+        });
+
+
+        influencers = [...new Map(influencers.map(item =>
+            [item['name'] , item])).values()];
+
+        influencers.forEach(element => {
+            console.log(element)
+            dataTable.push({
+                influencer: element, goal: purchases.reduce(function (sum, obj) {
+                    if (element.name === obj.inf['name']) {
+                        return parseFloat(sum) + parseFloat(obj.goal);
+                    }
+                    return parseFloat(sum);
+                }, 0), com: purchases.reduce(function (sum, obj) {
+                    if (element.name === obj.inf['name']) {
+                        return parseFloat(sum) + parseFloat(obj.commission);
+                    }
+                    return parseFloat(sum);
+                }, 0)
+            });
+        });
+
+        this.setState({
+            salesnumber: salesnumber,
+            amountnumber: amountnumber,
+            brandDetails: dataTable,
+            data: data,
+            loading: false
+        })
 
 
     }
@@ -202,7 +209,12 @@ class DetailsBrand extends Component {
             fontFamily: 'sans-serif',
             textAlign: 'center',
         };
-        return (
+        const { loading} = this.state;
+        return loading ? (
+            <div className={"text-center h1"}>
+                loading...
+            </div>
+        ) : (
             <div className={"container"}>
                 <div className={"row pt-5"}>
                     <div className={"col-md-4"}>
@@ -216,9 +228,9 @@ class DetailsBrand extends Component {
                         <div className={"card"}>
                             <div className={"d-block mx-auto my-2"}>
                                 <h4 className={"row justify-content-center"}> sales number</h4>
-                                <strong className={"row justify-content-center"}>{this.salesnumber}</strong>
+                                <strong className={"row justify-content-center"}>{this.state.salesnumber}</strong>
                                 <h4 className={"row justify-content-center"}>sales amount </h4>
-                                <strong className={"row justify-content-center"}>{this.amountnumber}</strong>
+                                <strong className={"row justify-content-center"}>{this.state.amountnumber}</strong>
                             </div>
 
                         </div>
@@ -274,4 +286,4 @@ class DetailsBrand extends Component {
     }
 }
 
-export default withRouter(DetailsBrand);
+export default DetailsBrand;
