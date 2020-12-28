@@ -109,15 +109,15 @@ class DetailsBrand extends Component {
             [item['name'] , item])).values()];
 
         influencers.forEach(element => {
-            console.log(element)
+           // console.log(element)
             dataTable.push({
                 influencer: element, goal: purchases.reduce(function (sum, obj) {
-                    if (element.name === obj.inf['name']) {
+                    if (element.key === obj.influencer) {
                         return parseFloat(sum) + parseFloat(obj.goal);
                     }
                     return parseFloat(sum);
                 }, 0), com: purchases.reduce(function (sum, obj) {
-                    if (element.name === obj.inf['name']) {
+                    if (element.key === obj.influencer) {
                         return parseFloat(sum) + parseFloat(obj.commission);
                     }
                     return parseFloat(sum);
